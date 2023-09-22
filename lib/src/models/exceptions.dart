@@ -1,0 +1,72 @@
+/// Exception thrown when an error occurs during the initialization of a Notix channel.
+///
+/// The [NotixChannelException] class is used to represent errors that
+/// occur during the setup and initialization of Notix channels. It includes a
+/// descriptive [message] to provide more information about the specific error.
+class NotixChannelException implements Exception {
+  /// A descriptive message explaining the cause of the exception.
+  final String message;
+
+  /// Creates a [NotixChannelException] with the provided error [message].
+  NotixChannelException(this.message);
+
+  @override
+  String toString() {
+    return 'NotixChannelException: $message';
+  }
+}
+
+/// Exception thrown when an error occurs during the general initialization of Notix.
+///
+/// The [NotixInitializationException] class is used to represent errors that occur
+/// during the overall initialization of the Notix framework. It includes a
+/// descriptive [message] to provide more information about the specific error.
+class NotixInitializationException implements Exception {
+  /// A descriptive message explaining the cause of the exception.
+  final String message;
+
+  /// Creates an [NotixInitializationException] with the provided error [message].
+  NotixInitializationException(this.message);
+
+  @override
+  String toString() {
+    return 'NotixInitializationException: $message';
+  }
+}
+
+/// Exception thrown when a permission-related error occurs within Notix.
+///
+/// The [NotixPermissionException] class is used to represent errors related to
+/// permissions, such as notification permission denied. It includes a
+/// descriptive [message] to provide more information about the specific error.
+class NotixPermissionException implements Exception {
+  /// A descriptive message explaining the cause of the exception.
+  final String message;
+
+  /// Creates a [NotixPermissionException] with the provided error [message].
+  NotixPermissionException(this.message);
+
+  @override
+  String toString() {
+    return 'NotixPermissionException: $message';
+  }
+}
+
+/// Exception thrown when an error occurs during the process of sending a notification.
+///
+/// The [NotixSendingException] class is used to represent errors that occur while
+/// attempting to send a notification, such as network or server-related issues.
+/// It includes a descriptive [message] to provide more information about the
+/// specific error.
+class NotixSendingException implements Exception {
+  /// A descriptive message explaining the cause of the exception.
+  final String message;
+
+  /// Creates a [NotixSendingException] with the provided error [message].
+  NotixSendingException(this.message);
+
+  @override
+  String toString() {
+    return 'SendingException: $message';
+  }
+}
