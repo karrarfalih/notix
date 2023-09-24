@@ -54,7 +54,8 @@ class _ChannelsService {
                 ? null
                 : RawResourceAndroidNotificationSound(
                     (channel.sound ?? _defaultChannel.sound!).split('.').first),
-            importance: channel.importance ?? _defaultChannel.importance ?? Importance.defaultImportance,
+            importance: (channel.importance ?? _defaultChannel.importance)
+                .toImportance(),
           ),
         );
   }

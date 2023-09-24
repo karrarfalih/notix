@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:notix/src/models/enums.dart';
 import 'package:notix/src/utils/uuid.dart';
 
 /// An object representing a notification to be sent or received by the Notix framework.
@@ -44,8 +45,8 @@ class NotixMessage {
   final Map<String, dynamic>? payload;
 
   /// The importance level of the notification, which can be [Importance.min], [Importance.low],
-  /// [Importance.defaultImportance], [Importance.high], or [Importance.max].
-  final Importance? importance;
+  /// [NotixImportance.defaultImportance], [NotixImportance.high], or [NotixImportance.max].
+  final NotixImportance? importance;
 
   /// A flag indicating whether the notification should play a sound when received.
   final bool? playSound;
@@ -115,9 +116,9 @@ class NotixMessage {
         body = map['body'],
         payload = map,
         imageUrl = map['imageUrl'],
-        importance = Importance.values.firstWhere(
+        importance = NotixImportance.values.firstWhere(
           (element) => element.name == map['importance'],
-          orElse: () => Importance.max,
+          orElse: () => NotixImportance.max,
         ),
         createdAt = DateTime.fromMillisecondsSinceEpoch(map['createdAt']),
         playSound = map['playSound'] ?? true,
@@ -138,7 +139,7 @@ class NotixMessage {
     String? clientNotificationId,
     Map<String, dynamic>? payload,
     String? imageUrl,
-    Importance? importance,
+    NotixImportance? importance,
     DateTime? createdAt,
     List<String>? senders,
     bool? playSound,

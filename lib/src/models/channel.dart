@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:notix/src/models/enums.dart';
 
 /// Represents a notification channel configuration.
 ///
@@ -20,7 +20,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 ///   enableLights: true,
 ///   ledColor: Colors.blue,
 ///   sound: 'custom_sound.mp3',
-///   importance: Importance.high,
+///   importance: NotixImportance.high,
 /// );
 /// ```
 class NotixChannel {
@@ -56,7 +56,7 @@ class NotixChannel {
   final String? sound;
 
   /// The importance level of this notification channel.
-  final Importance? importance;
+  final NotixImportance? importance;
 
   /// Creates a new [NotixChannel] instance with the specified configurations.
   ///
@@ -69,7 +69,7 @@ class NotixChannel {
   /// The [enableLights] parameter determines whether notifications in the channel should enable lights.
   /// The [ledColor] parameter specifies the LED color for notifications in the channel.
   /// The [sound] parameter specifies a custom sound file for notifications in the channel.
-  /// The [importance] parameter defines the importance level of the channel.
+  /// The [NotixImportance] parameter defines the importance level of the channel.
   ///
   /// Example:
   ///
@@ -84,7 +84,7 @@ class NotixChannel {
   ///   enableLights: true,
   ///   ledColor: Colors.blue,
   ///   sound: 'custom_sound.mp3',
-  ///   importance: Importance.high,
+  ///   importance: NotixImportance.high,
   /// );
   /// ```
   NotixChannel({
@@ -138,7 +138,7 @@ class NotixChannel {
         sound = map['sound'],
         importance = map['importance'] == null
             ? null
-            : Importance.values.firstWhere(
+            : NotixImportance.values.firstWhere(
                 (element) => element.name == map['importance'],
               );
 
@@ -160,7 +160,7 @@ class NotixChannel {
   ///   enableLights: true,
   ///   ledColor: Colors.blue,
   ///   sound: 'custom_sound.mp3',
-  ///   importance: Importance.high,
+  ///   importance: NotixImportance.high,
   /// );
   ///
   /// Map<String, dynamic> channelMap = channel.toJson;
@@ -208,7 +208,7 @@ class NotixChannel {
     bool? enableLights,
     Color? ledColor,
     String? sound,
-    Importance? importance,
+    NotixImportance? importance,
   }) {
     return NotixChannel(
       id: id,

@@ -92,7 +92,7 @@ NotixChannel channel = NotixChannel(
   enableLights: true,
   ledColor: Colors.blue,
   sound: 'custom_sound.mp3',
-  importance: Importance.high,
+  importance: NotixImportance.high,
 );
 
 // Add the channel to the configuration

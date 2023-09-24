@@ -10,6 +10,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:notix/src/models/enums.dart';
 import 'package:notix/src/models/models.dart';
 import 'package:notix/src/utils/log.dart';
 
@@ -72,7 +73,7 @@ abstract class Notix {
   /// To ensure efficient Firestore queries and operations, you need to set up
   /// appropriate Firestore indexes. You can do this by adding the following indexes
   /// in the Firebase console:
-  /// 
+  ///
   /// Collection: your_collection_path (by default: notix)
   /// 1- for querying notifications for the current user:
   ///   Fields:
@@ -298,9 +299,8 @@ abstract class Notix {
         groupKey: channel.groupId,
         channelDescription: channel.description,
         icon: _configs.icon,
-        importance: notification.importance ??
-            channel.importance ??
-            Importance.defaultImportance,
+        importance:
+            (notification.importance ?? channel.importance).toImportance(),
         enableLights: channel.enableLights ?? false,
         channelShowBadge: channel.showBadge ?? true,
         ledColor: channel.ledColor,
@@ -559,14 +559,14 @@ abstract class Notix {
   /// Disposes the Notix package.
   /// Use this method to dispose the Notix package and release all resources.
   /// This method should be called when the app is no longer using the Notix package.
-  /// 
+  ///
   /// Example usage:
   /// ```dart
   /// Notix.dispose();
   /// ```
-  /// 
+  ///
   /// See also: [init]
-  static void dispose(){
+  static void dispose() {
     unsubscribeFromAll();
     _eventController?.close();
     _configs = NotixConfig.defaults();
