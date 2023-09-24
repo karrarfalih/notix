@@ -1,8 +1,9 @@
 part of 'notix.dart';
 
 class _ChannelsService {
+  NotixChannel get _defaultChannel => Notix.configs.defaultChannel;
   List<NotixChannel> get _channels =>
-      [Notix.configs.defaultChannel, ...Notix.configs.channels];
+      [_defaultChannel, ...Notix.configs.channels];
   List<NotixGroupChannel> get _groupChannels => Notix.configs.groupChannels;
 
   bool get _hasSound => _channels.any((e) => e.playSound ?? false);
@@ -41,16 +42,19 @@ class _ChannelsService {
             channel.name,
             groupId: channel.groupId,
             description: channel.description,
-            playSound: channel.playSound!,
-            showBadge: channel.showBadge!,
-            enableVibration: channel.enableLights!,
-            enableLights: channel.enableLights!,
-            ledColor: channel.ledColor,
-            sound: channel.sound == null
+            playSound: channel.playSound ?? _defaultChannel.playSound ?? true,
+            showBadge: channel.showBadge ?? _defaultChannel.showBadge ?? true,
+            enableVibration: channel.enableVibration ??
+                _defaultChannel.enableVibration ??
+                true,
+            enableLights:
+                channel.enableLights ?? _defaultChannel.enableLights ?? false,
+            ledColor: channel.ledColor ?? _defaultChannel.ledColor,
+            sound: channel.sound == null && _defaultChannel.sound == null
                 ? null
                 : RawResourceAndroidNotificationSound(
-                    channel.sound!.split('.').first),
-            importance: channel.importance!,
+                    (channel.sound ?? _defaultChannel.sound!).split('.').first),
+            importance: channel.importance ?? _defaultChannel.importance ?? Importance.defaultImportance,
           ),
         );
   }

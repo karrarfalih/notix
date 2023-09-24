@@ -1,12 +1,12 @@
-# NotiX
+# Notix
 
-Effortlessly manage and customize notifications on Android and iOS in your Flutter app with NotiX.
+Effortlessly manage and customize notifications on Android and iOS in your Flutter app with Notix.
 
 ## Table of Contents
 
 - [Installation](#installation)
 - [Getting Started](#getting-started)
-  - [Initialize NotiX](#1-initialize-notix)
+  - [Initialize Notix](#1-initialize-Notix)
   - [Send Notifications](#2-send-notifications)
   - [Receive and Handle Notifications](#3-receive-and-handle-notifications)
 - [Advanced Usage](#advanced-usage)
@@ -20,20 +20,20 @@ Add the following line to your `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  notix: ^x.y.z
+  Notix: ^x.y.z
 ```
-Replace x.y.z with the latest version of NotiX from pub.dev.
+Replace x.y.z with the latest version of Notix from pub.dev.
 
 # Getting Started
-## 1. Initialize NotiX
-Initialize NotiX with your configuration, such as Firebase Cloud Messaging (FCM) settings and notification channels. This step is essential before using NotiX in your app.
+## 1. Initialize Notix
+Initialize Notix with your configuration, such as Firebase Cloud Messaging (FCM) settings and notification channels. This step is essential before using Notix in your app.
 
 ```dart
-import 'package:notix/notix.dart';
+import 'package:Notix/Notix.dart';
 
 void main() async {
-  await NotiX.init(
-    configs: NotifyConfig(
+  await Notix.init(
+    configs: NotixConfig(
       firebaseMessagingKey: 'YOUR_FCM_API_KEY',
       icon: 'notification_icon',
       // Add more configuration options here
@@ -46,17 +46,17 @@ void main() async {
 Send notifications to your app users with ease. You can customize the content, channel, and behavior of each notification.
 
 ```dart
-import 'package:notix/notix.dart';
+import 'package:Notix/Notix.dart';
 
 void sendNotification() {
-  NotifyMessage notification = NotifyMessage(
+  NotixMessage notification = NotixMessage(
     title: 'New Message',
     body: 'You have a new message.',
     clientNotificationId: 'unique_id',
     // Add more notification details here
   );
 
-  NotiX.push(notification);
+  Notix.push(notification);
 }
 ```
 
@@ -64,10 +64,10 @@ void sendNotification() {
 Handle incoming notifications and customize the behavior when a user interacts with them. You can listen to various notification events and take actions accordingly.
 
 ```dart
-import 'package:notix/notix.dart';
+import 'package:Notix/Notix.dart';
 
 void main() {
-  NotiX.eventsStream.listen((event) {
+  Notix.eventsStream.listen((event) {
     if (event.type == EventType.notificationTap) {
       // Handle notification tap event
     } else if (event.type == EventType.receiveNotification) {
@@ -79,10 +79,10 @@ void main() {
 
 # Advanced Usage
 ## Notification Channels
-NotiX supports the creation and management of notification channels on Android. You can define channels with different behaviors, such as sound, vibration, or LED colors.
+Notix supports the creation and management of notification channels on Android. You can define channels with different behaviors, such as sound, vibration, or LED colors.
 
 ```dart
-NotifyChannel channel = NotifyChannel(
+NotixChannel channel = NotixChannel(
   id: 'channel_id',
   name: 'Channel Name',
   description: 'Channel Description',
@@ -96,21 +96,21 @@ NotifyChannel channel = NotifyChannel(
 );
 
 // Add the channel to the configuration
-NotifyConfig configs = NotifyConfig(
+NotixConfig configs = NotixConfig(
   channels: [channel],
   // ...
 );
 ```
 ## Firebase Integration
-NotiX seamlessly integrates with Firebase for cloud messaging. You can utilize Firebase services for better notification delivery and management.
+Notix seamlessly integrates with Firebase for cloud messaging. You can utilize Firebase services for better notification delivery and management.
 
 ```dart
 // Initialize Firebase in your app
 await Firebase.initializeApp();
 
-// Initialize NotiX with Firebase Cloud Messaging settings
-await NotiX.init(
-  configs: NotifyConfig(
+// Initialize Notix with Firebase Cloud Messaging settings
+await Notix.init(
+  configs: NotixConfig(
     firebaseMessagingKey: 'YOUR_FCM_API_KEY',
     // ...
   ),

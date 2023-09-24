@@ -1,5 +1,7 @@
+import 'dart:math';
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:uuid/uuid.dart';
+import 'package:notix/src/utils/uuid.dart';
 
 /// An object representing a notification to be sent or received by the Notix framework.
 ///
@@ -13,6 +15,15 @@ class NotixMessage {
 
   /// A unique identifier for the notification used by the Android/iOS system
   final int notificationId;
+
+  /// A client-specific identifier for the notification.
+  final String? clientNotificationId;
+
+  // The user ID of the target user for the notification.
+  final String? targetedUserId;
+
+  /// A list of sender identifiers associated with the notification.
+  final List<String> senders;
 
   /// The channel through which the notification is delivered.
   final String? channel;
@@ -28,12 +39,6 @@ class NotixMessage {
 
   /// The URL of an optional image associated with the notification.
   final String? imageUrl;
-
-  /// A list of sender identifiers associated with the notification.
-  final List<String>? senders;
-
-  /// A client-specific identifier for the notification.
-  final String? clientNotificationId;
 
   /// Additional payload data associated with the notification.
   final Map<String, dynamic>? payload;
@@ -55,21 +60,21 @@ class NotixMessage {
   NotixMessage({
     String? id,
     int? notificationId,
+    required this.clientNotificationId,
+    this.senders = const [],
+    this.targetedUserId,
     this.channel,
     this.type = NotixType.target,
     required this.body,
-    required this.clientNotificationId,
     required this.title,
     this.payload,
     this.imageUrl,
     this.importance,
     DateTime? createdAt,
-    this.senders,
     this.playSound,
     bool? isSeen,
-  })  : id = id ?? const Uuid().v4(),
-        notificationId =
-            notificationId ?? DateTime.now().millisecondsSinceEpoch,
+  })  : id = id ?? GUIDGen.generate(),
+        notificationId = notificationId ?? Random().nextInt(1 << 16),
         createdAt = createdAt ?? DateTime.now(),
         isSeen = isSeen ?? false;
 
@@ -98,6 +103,9 @@ class NotixMessage {
   NotixMessage.fromMap(Map<String, dynamic> map)
       : id = map['id'],
         notificationId = map['notificationId'],
+        clientNotificationId = map['clientNotificationId'],
+        targetedUserId = map['targetedUserId'],
+        senders = List.from(map['senders'] ?? []),
         channel = map['channel'],
         type = NotixType.values.firstWhere(
           (element) => element.name == map['type'],
@@ -105,7 +113,6 @@ class NotixMessage {
         ),
         title = map['title'],
         body = map['body'],
-        clientNotificationId = map['clientNotificationId'],
         payload = map,
         imageUrl = map['imageUrl'],
         importance = Importance.values.firstWhere(
@@ -114,7 +121,6 @@ class NotixMessage {
         ),
         createdAt = DateTime.fromMillisecondsSinceEpoch(map['createdAt']),
         playSound = map['playSound'] ?? true,
-        senders = map['senders'] ?? [],
         isSeen = map['isSeen'] ?? false;
 
   /// Creates a copy of this [NotixMessage] instance with the specified parameters.

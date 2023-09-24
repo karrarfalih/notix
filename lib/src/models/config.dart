@@ -67,16 +67,18 @@ class NotixConfig {
   final NotixChannel defaultChannel;
 
   /// A callback function that returns the current signed-in user's ID.
-  final String? Function()? currentUser;
+  final String? Function()? currentUserId;
 
   /// Configuration for the data source used to store notifications.
-  final NotixFirestore? datasourceConfig;
+  final NotixFirestore datasourceConfig;
 
   /// A callback function for handling received notifications.
   Function(NotixMessage)? onRecievedNotification;
 
   /// A callback function for handling selected notifications.
   Function(NotixMessage)? onSelectNotification;
+
+  Function(String)? onTokenRefresh;
 
   /// A callback function for determining whether to show a notification.
   bool Function(NotixMessage notification)? canShowNotification;
@@ -101,8 +103,8 @@ class NotixConfig {
     List<NotixChannel> channels = const [],
     this.groupChannels = const [],
     NotixChannel? defaultChannel,
-    this.currentUser,
-    this.datasourceConfig,
+    this.currentUserId,
+    this.datasourceConfig = const NotixFirestore(),
     this.onRecievedNotification,
     this.onSelectNotification,
     this.canShowNotification,

@@ -16,7 +16,7 @@ import 'package:notix/src/utils/log.dart';
 part 'channels.dart';
 
 @pragma('vm:entry-point')
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   Notix._recievedNotificationHandler(message);
 }
 
@@ -25,6 +25,7 @@ abstract class Notix {
   static final _messaging = FirebaseMessaging.instance;
   static bool _isInitialized = false;
   static late FlutterLocalNotificationsPlugin _plugin;
+  static final List<String> _topics = [];
 
   static NotixConfig _configs = NotixConfig.defaults();
 
@@ -33,7 +34,7 @@ abstract class Notix {
 
   /// Sets the configuration for the Notix library.
   static set configs(NotixConfig value) {
-    NotixLog.d('Configs added: $value');
+    NotixLog.d('Configs added.');
     _configs = value;
   }
 
@@ -66,6 +67,22 @@ abstract class Notix {
   /// To use custom configurations, create an instance of the [NotixConfig] class
   /// with the desired settings and pass it as the `configs` parameter when
   /// calling this method.
+  ///
+  /// Firestore Indexes:
+  /// To ensure efficient Firestore queries and operations, you need to set up
+  /// appropriate Firestore indexes. You can do this by adding the following indexes
+  /// in the Firebase console:
+  /// 
+  /// Collection: your_collection_path (by default: notix)
+  /// 1- for querying notifications for the current user:
+  ///   Fields:
+  ///   - targetedUserId (Ascending)
+  ///   - createdAt (Descending)
+  ///
+  /// 2- for marking notifications as seen:
+  ///  Fields:
+  ///   - targetedUserId (Ascending)
+  ///   - isSeen (Ascending)
   ///
   /// Example:
   ///
@@ -119,10 +136,7 @@ abstract class Notix {
     if (!isGranted) {
       throw NotixPermissionException('Permission denied.');
     }
-    FirebaseMessaging.onBackgroundMessage((message) async {
-      _firebaseMessagingBackgroundHandler(message);
-    });
-
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
     if (!kIsWeb) {
       _plugin = FlutterLocalNotificationsPlugin();
       await _channels.init();
@@ -159,6 +173,9 @@ abstract class Notix {
       }
     }
     FirebaseMessaging.onMessage.listen(_recievedNotificationHandler);
+    if (configs.onTokenRefresh != null) {
+      _messaging.onTokenRefresh.listen(configs.onTokenRefresh);
+    }
     NotixLog.d('Notix has been initialized');
   }
 
@@ -206,7 +223,7 @@ abstract class Notix {
         NotixMessage.fromMap(json.decode(message.data['content'] ?? '{}'));
     if (configs.canShowNotification == null ||
         (_configs.canShowNotification?.call(not) ?? false)) {
-      await _showNotification(not);
+      await showNotification(not);
     }
     _eventController?.add(NotixEvent(
       type: not.type == NotixType.topic
@@ -219,15 +236,20 @@ abstract class Notix {
   /// Returns the default FCM token for this device.
   ///
   /// On web, a [vapidKey] is required.
-  Future<String?> getToken({
+  static Future<String?> getToken({
     String? vapidKey,
-  }) {
-    return _messaging.getToken(vapidKey: vapidKey);
+  }) async {
+    final token = await _messaging.getToken(vapidKey: vapidKey);
+    NotixLog.d('FCM Token: $token');
+    return token;
   }
 
   /// Fires when a new FCM token is generated.
-  Stream<String> get onTokenRefresh {
-    return _messaging.onTokenRefresh;
+  static Stream<String> get onTokenRefresh {
+    return _messaging.onTokenRefresh.map((event) {
+      NotixLog.d('Refreshed FCM token: $event');
+      return event;
+    });
   }
 
   static Future<dynamic> _onSelectNotificationHandler(
@@ -242,59 +264,80 @@ abstract class Notix {
     ));
   }
 
-  static _showNotification(NotixMessage notification) async {
+  /// Shows a notification with the specified parameters.
+  /// Use this method to show a notification with the specified parameters locally on the current device.
+  /// Usually, this method is used for the testing purposes.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// Notix.showNotification(
+  ///   NotixModel(
+  ///     title: 'title',
+  ///     body: 'body',
+  ///     clientNotificationId: 'the client notification id or topic',
+  ///     channel: 'channel',
+  ///     type: NotixType.topic,
+  ///     imageUrl: 'your image url',
+  ///   ),
+  /// );
+  /// ```
+  ///
+  /// See also: [cancel], [push], [init]
+  static showNotification(NotixMessage notification) async {
     NotixLog.d('Showing notification: ${notification.toMap}');
-    configs.onRecievedNotification?.call(notification);
-    final channel = _configs.channels.firstWhere(
-      (e) => e.id == notification.channel,
-      orElse: () => configs.defaultChannel,
-    );
+    try {
+      configs.onRecievedNotification?.call(notification);
+      final channel = _configs.channels.firstWhere(
+        (e) => e.id == notification.channel,
+        orElse: () => configs.defaultChannel,
+      );
 
-    AndroidNotificationDetails androidPlatformChannelSpecifics =
-        AndroidNotificationDetails(
-      channel.id,
-      channel.name,
-      groupKey: channel.groupId,
-      channelDescription: channel.description,
-      icon: _configs.icon,
-      importance: notification.importance ??
-          channel.importance ??
-          Importance.defaultImportance,
-      enableLights: channel.enableLights ?? false,
-      channelShowBadge: channel.showBadge ?? true,
-      ledColor: channel.ledColor,
-      enableVibration: channel.enableVibration ?? true,
-      playSound: notification.playSound ?? channel.playSound ?? true,
-      sound: channel.sound == null
-          ? null
-          : RawResourceAndroidNotificationSound(
-              channel.sound!.split('.').first),
-    );
+      final androidPlatformChannelSpecifics = AndroidNotificationDetails(
+        channel.id,
+        channel.name,
+        groupKey: channel.groupId,
+        channelDescription: channel.description,
+        icon: _configs.icon,
+        importance: notification.importance ??
+            channel.importance ??
+            Importance.defaultImportance,
+        enableLights: channel.enableLights ?? false,
+        channelShowBadge: channel.showBadge ?? true,
+        ledColor: channel.ledColor,
+        enableVibration: channel.enableVibration ?? true,
+        playSound: notification.playSound ?? channel.playSound ?? true,
+        sound: channel.sound == null
+            ? null
+            : RawResourceAndroidNotificationSound(
+                channel.sound!.split('.').first),
+      );
 
-    DarwinNotificationDetails iosNotificationDetails =
-        DarwinNotificationDetails(
-      threadIdentifier: channel.groupId,
-      presentSound: notification.playSound ?? channel.playSound,
-      sound: channel.sound,
-      categoryIdentifier: channel.id,
-      presentBadge: channel.showBadge,
-    );
+      final iosNotificationDetails = DarwinNotificationDetails(
+        threadIdentifier: channel.groupId,
+        presentSound: notification.playSound ?? channel.playSound,
+        sound: channel.sound,
+        categoryIdentifier: channel.id,
+        presentBadge: channel.showBadge,
+      );
 
-    NotificationDetails platformChannelSpecifics = NotificationDetails(
-      android: androidPlatformChannelSpecifics,
-      iOS: iosNotificationDetails,
-    );
-    await _plugin.show(
-      notification.notificationId,
-      notification.title,
-      notification.body,
-      platformChannelSpecifics,
-      payload: json.encode(notification.toMap),
-    );
-    _eventController?.add(NotixEvent(
-      type: EventType.notificationAdd,
-      notification: notification,
-    ));
+      NotificationDetails platformChannelSpecifics = NotificationDetails(
+        android: androidPlatformChannelSpecifics,
+        iOS: iosNotificationDetails,
+      );
+      await _plugin.show(
+        notification.notificationId,
+        notification.title,
+        notification.body,
+        platformChannelSpecifics,
+        payload: json.encode(notification.toMap),
+      );
+      _eventController?.add(NotixEvent(
+        type: EventType.notificationAdd,
+        notification: notification,
+      ));
+    } catch (e) {
+      NotixLog.d('Error showing notification: $e', isError: true);
+    }
     NotixLog.d(
         'Notification shown successfully for id ${notification.notificationId}');
   }
@@ -362,6 +405,7 @@ abstract class Notix {
   static Future<void> subscibeToTopic(String topic) async {
     _checkInitialized();
     await _messaging.subscribeToTopic(topic);
+    _topics.add(topic);
     NotixLog.d('Subscribed to topic $topic');
   }
 
@@ -385,6 +429,25 @@ abstract class Notix {
     NotixLog.d('Unsubscribed from topic $topic');
   }
 
+  /// Unsubscribes the app from all topics to stop receiving notifications.
+  /// Use this method to unsubscribe the app from all topics, preventing it from
+  /// receiving notifications related to any topic. Notifications sent to any
+  /// unsubscribed topic will no longer be delivered to the app.
+  /// Example usage:
+  /// ```dart
+  /// await Notix.unsubscribeFromAll();
+  /// ```
+  ///
+  /// See also: [subscibeToTopic], [push], [init]
+  static Future<void> unsubscribeFromAll() async {
+    _checkInitialized();
+    for (final topic in _topics) {
+      await unsubscribeFromTopic(topic);
+    }
+    _topics.clear();
+    NotixLog.d('Unsubscribed from all topics');
+  }
+
   /// Sends a notification to the specified recipient.
   ///
   /// Use this method to send a notification to a specific recipient identified
@@ -404,6 +467,7 @@ abstract class Notix {
   ///    title: 'title',
   ///    body: 'body',
   ///    clientNotificationId: 'the client notification id or topic',
+  ///    targetedUserId: 'the user id',
   ///    channel: 'channel',
   ///    type: NotixType.topic,
   ///    imageUrl: 'your image url',
@@ -431,7 +495,7 @@ abstract class Notix {
           type: EventType.notificationAdd,
           notification: notification,
         ));
-        await configs.datasourceConfig?.save(notification);
+        await configs.datasourceConfig.save(notification);
         break;
       } catch (e) {
         NotixLog.d('Error sending notification: $e', isError: true);
@@ -490,6 +554,22 @@ abstract class Notix {
     } catch (e) {
       throw NotixSendingException('Error sending notification: $e');
     }
-    await configs.datasourceConfig?.save(notification);
+  }
+
+  /// Disposes the Notix package.
+  /// Use this method to dispose the Notix package and release all resources.
+  /// This method should be called when the app is no longer using the Notix package.
+  /// 
+  /// Example usage:
+  /// ```dart
+  /// Notix.dispose();
+  /// ```
+  /// 
+  /// See also: [init]
+  static void dispose(){
+    unsubscribeFromAll();
+    _eventController?.close();
+    _configs = NotixConfig.defaults();
+    _isInitialized = false;
   }
 }
