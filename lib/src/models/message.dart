@@ -17,8 +17,12 @@ class NotixMessage {
   /// A unique identifier for the notification used by the Android/iOS system
   final int notificationId;
 
-  /// A client-specific identifier for the notification.
-  final String? clientNotificationId;
+  /// A list of client-specific identifiers for the notification. This is used to
+  /// send notifications for all the client devices of a user.
+  final List<String> clientNotificationIds;
+
+  /// The topic or group ID associated with the notification.
+  final String? topic;
 
   // The user ID of the target user for the notification.
   final String? targetedUserId;
@@ -29,14 +33,11 @@ class NotixMessage {
   /// The channel through which the notification is delivered.
   final String? channel;
 
-  /// The type of notification, which can be [NotixType.target] or [NotixType.topic].
-  final NotixType type;
-
   /// The title of the notification.
-  final String title;
+  final String? title;
 
   /// The main content or body of the notification.
-  final String body;
+  final String? body;
 
   /// The URL of an optional image associated with the notification.
   final String? imageUrl;
@@ -61,13 +62,13 @@ class NotixMessage {
   NotixMessage({
     String? id,
     int? notificationId,
-    required this.clientNotificationId,
+    this.clientNotificationIds = const [],
+    this.topic,
     this.senders = const [],
     this.targetedUserId,
     this.channel,
-    this.type = NotixType.target,
-    required this.body,
-    required this.title,
+    this.body,
+    this.title,
     this.payload,
     this.imageUrl,
     this.importance,
@@ -77,17 +78,21 @@ class NotixMessage {
   })  : id = id ?? GUIDGen.generate(),
         notificationId = notificationId ?? Random().nextInt(1 << 16),
         createdAt = createdAt ?? DateTime.now(),
-        isSeen = isSeen ?? false;
+        isSeen = isSeen ?? false,
+        assert (clientNotificationIds.isEmpty && topic == null, 'you must provide a topic or a clientNotificationIds'),
+        assert(title == null && body == null,
+            'you must provide a title or a body');
 
   /// Converts the [NotixMessage] object to a JSON-encodable map.
   Map<String, dynamic> get toMap => {
         'id': id,
         'notificationId': notificationId,
+        'topic': topic,
+        'targetedUserId': targetedUserId,
         'channel': channel,
-        'type': type.name,
         'title': title,
         'body': body,
-        'clientNotificationId': clientNotificationId,
+        'clientNotificationId': clientNotificationIds,
         'imageUrl': imageUrl,
         'importance': importance?.name,
         'createdAt': createdAt.millisecondsSinceEpoch,
@@ -104,14 +109,11 @@ class NotixMessage {
   NotixMessage.fromMap(Map<String, dynamic> map)
       : id = map['id'],
         notificationId = map['notificationId'],
-        clientNotificationId = map['clientNotificationId'],
+        clientNotificationIds = List.from(map['clientNotificationIds'] ?? []),
+        topic = map['topic'],
         targetedUserId = map['targetedUserId'],
         senders = List.from(map['senders'] ?? []),
         channel = map['channel'],
-        type = NotixType.values.firstWhere(
-          (element) => element.name == map['type'],
-          orElse: () => NotixType.target,
-        ),
         title = map['title'],
         body = map['body'],
         payload = map,
@@ -132,11 +134,12 @@ class NotixMessage {
   NotixMessage copyWith({
     String? id,
     int? notificationId,
+    String? topic,
+    String? targetedUserId,
     String? channel,
-    NotixType? type,
     String? title,
     String? body,
-    String? clientNotificationId,
+    List<String>? clientNotificationIds,
     Map<String, dynamic>? payload,
     String? imageUrl,
     NotixImportance? importance,
@@ -149,10 +152,10 @@ class NotixMessage {
       id: id ?? this.id,
       notificationId: notificationId ?? this.notificationId,
       channel: channel ?? this.channel,
-      type: type ?? this.type,
       title: title ?? this.title,
       body: body ?? this.body,
-      clientNotificationId: clientNotificationId ?? this.clientNotificationId,
+      clientNotificationIds:
+          clientNotificationIds ?? this.clientNotificationIds,
       payload: payload ?? this.payload,
       imageUrl: imageUrl ?? this.imageUrl,
       importance: importance ?? this.importance,
@@ -162,13 +165,4 @@ class NotixMessage {
       isSeen: isSeen ?? this.isSeen,
     );
   }
-}
-
-/// An enumeration representing the type of a notification.
-enum NotixType {
-  /// A notification sent to a specific target.
-  target,
-
-  /// A notification sent to a topic or group.
-  topic,
 }

@@ -10,7 +10,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:notix/src/models/enums.dart';
 import 'package:notix/src/models/models.dart';
 import 'package:notix/src/utils/log.dart';
 
@@ -220,14 +219,19 @@ abstract class Notix {
 
   static void _recievedNotificationHandler(RemoteMessage message) async {
     NotixLog.d('Recieved notification: ${message.data}');
-    final not =
-        NotixMessage.fromMap(json.decode(message.data['content'] ?? '{}'));
+    final NotixMessage not;
+    try {
+      not = NotixMessage.fromMap(json.decode(message.data['content'] ?? '{}'));
+    } catch (e) {
+      throw NotixParsingException(
+          'Error parsing notification: $e. Please make sure that you are using the latest version of Notix.');
+    }
     if (configs.canShowNotification == null ||
-        (_configs.canShowNotification?.call(not) ?? false)) {
+        (configs.canShowNotification?.call(not) ?? false)) {
       await showNotification(not);
     }
     _eventController?.add(NotixEvent(
-      type: not.type == NotixType.topic
+      type: not.topic != null
           ? EventType.receiveTopic
           : EventType.receiveNotification,
       notification: not,
@@ -451,8 +455,14 @@ abstract class Notix {
   /// Sends a notification to the specified recipient.
   ///
   /// Use this method to send a notification to a specific recipient identified
-  /// by [notification.clientNotificationId]. The method will attempt to send
+  /// by [notification.clientNotificationIds]. The method will attempt to send
   /// the notification multiple times with retries if necessary.
+  ///
+  /// The notification will be sent to all the client devices of the user.
+  ///
+  /// If the notification is sent successfully, the [EventType.notificationAdd] event will be fired.
+  ///
+  /// The maximum number of retries is determined by the [configs.maxRetries] value.
   ///
   /// If the maximum number of retries is reached and the notification cannot
   /// be sent, an error will be logged.
@@ -466,7 +476,7 @@ abstract class Notix {
   ///   NotixModel(
   ///    title: 'title',
   ///    body: 'body',
-  ///    clientNotificationId: 'the client notification id or topic',
+  ///    clientNotificationId: ['the client notification id or topic'],
   ///    targetedUserId: 'the user id',
   ///    channel: 'channel',
   ///    type: NotixType.topic,
@@ -477,42 +487,53 @@ abstract class Notix {
   static Future<void> push(NotixMessage notification) async {
     _checkInitialized();
     NotixLog.d('Sending notification: ${notification.toMap}');
-    var channel = _configs.channels.firstWhere(
-      (e) => e.id == notification.channel,
-      orElse: () => _configs.defaultChannel,
-    );
-    if (notification.clientNotificationId == null) {
-      return;
+    if (notification.clientNotificationIds.isEmpty &&
+        notification.topic == null) {
+      throw NotixSendingException(
+          'Client notification id is required for sending notifications.');
     }
+    final res = await Future.wait(
+        notification.clientNotificationIds.map((e) => _push(notification, e)));
+    if (res.any((e) => e != null)) {
+      NotixLog.d(
+          '${res.where((e) => e == null).length} Notifications sent successfully. ${res.where((e) => e != null).length} has been failed for id ${notification.notificationId}',
+          isError: true);
+    } else {
+      NotixLog.d(
+          '${notification.clientNotificationIds.length} Notifications sent successfully for id ${notification.notificationId}');
+    }
+
+    _eventController?.add(NotixEvent(
+      type: EventType.notificationAdd,
+      notification: notification,
+    ));
+    await configs.datasourceConfig.save(notification);
+  }
+
+  static Future<String?> _push(
+      NotixMessage notification, String clientNotificationId) async {
     int currentRetry = 0;
     const retryDelay = Duration(seconds: 5);
     while (currentRetry < _configs.maxRetries) {
       try {
-        await _sendHttpRequest(notification, channel);
-        NotixLog.d(
-            'Notification sent successfully for id ${notification.notificationId}');
-        _eventController?.add(NotixEvent(
-          type: EventType.notificationAdd,
-          notification: notification,
-        ));
-        await configs.datasourceConfig.save(notification);
-        break;
+        await _sendHttpRequest(notification, clientNotificationId);
       } catch (e) {
         NotixLog.d('Error sending notification: $e', isError: true);
         await Future.delayed(retryDelay);
         currentRetry++;
         if (currentRetry == _configs.maxRetries) {
-          rethrow;
+          return e.toString();
         }
       }
     }
+    return null;
   }
 
   static Future<void> _sendHttpRequest(
-      NotixMessage notification, NotixChannel channel) async {
-    String? to = notification.clientNotificationId;
-    if (notification.type == NotixType.topic) {
-      to = '/topics/${notification.clientNotificationId}';
+      NotixMessage notification, String clientNotificationId) async {
+    String to = clientNotificationId;
+    if (notification.topic != null) {
+      to = '/topics/$clientNotificationId';
     }
     try {
       await Dio().post(
@@ -531,7 +552,6 @@ abstract class Notix {
           },
           "data": {
             "content": notification.toMap,
-            'channel': channel.toJson,
           }
         }),
       );

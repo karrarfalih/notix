@@ -1,19 +1,24 @@
+class NotixException implements Exception {
+  /// A descriptive message explaining the cause of the exception.
+  final String message;
+
+  /// Creates a [NotixException] with the provided error [message].
+  NotixException(this.message);
+
+  @override
+  String toString() {
+    return 'NotixException: $message';
+  }
+}
+
 /// Exception thrown when an error occurs during the initialization of a Notix channel.
 ///
 /// The [NotixChannelException] class is used to represent errors that
 /// occur during the setup and initialization of Notix channels. It includes a
 /// descriptive [message] to provide more information about the specific error.
-class NotixChannelException implements Exception {
-  /// A descriptive message explaining the cause of the exception.
-  final String message;
-
-  /// Creates a [NotixChannelException] with the provided error [message].
-  NotixChannelException(this.message);
-
-  @override
-  String toString() {
-    return 'NotixChannelException: $message';
-  }
+class NotixChannelException extends NotixException {
+  /// Creates an [NotixChannelException] with the provided error [message].
+  NotixChannelException(super.message);
 }
 
 /// Exception thrown when an error occurs during the general initialization of Notix.
@@ -21,17 +26,9 @@ class NotixChannelException implements Exception {
 /// The [NotixInitializationException] class is used to represent errors that occur
 /// during the overall initialization of the Notix framework. It includes a
 /// descriptive [message] to provide more information about the specific error.
-class NotixInitializationException implements Exception {
-  /// A descriptive message explaining the cause of the exception.
-  final String message;
-
+class NotixInitializationException extends NotixException {
   /// Creates an [NotixInitializationException] with the provided error [message].
-  NotixInitializationException(this.message);
-
-  @override
-  String toString() {
-    return 'NotixInitializationException: $message';
-  }
+  NotixInitializationException(super.message);
 }
 
 /// Exception thrown when a permission-related error occurs within Notix.
@@ -39,17 +36,9 @@ class NotixInitializationException implements Exception {
 /// The [NotixPermissionException] class is used to represent errors related to
 /// permissions, such as notification permission denied. It includes a
 /// descriptive [message] to provide more information about the specific error.
-class NotixPermissionException implements Exception {
-  /// A descriptive message explaining the cause of the exception.
-  final String message;
-
+class NotixPermissionException extends NotixException {
   /// Creates a [NotixPermissionException] with the provided error [message].
-  NotixPermissionException(this.message);
-
-  @override
-  String toString() {
-    return 'NotixPermissionException: $message';
-  }
+  NotixPermissionException(super.message);
 }
 
 /// Exception thrown when an error occurs during the process of sending a notification.
@@ -58,15 +47,17 @@ class NotixPermissionException implements Exception {
 /// attempting to send a notification, such as network or server-related issues.
 /// It includes a descriptive [message] to provide more information about the
 /// specific error.
-class NotixSendingException implements Exception {
-  /// A descriptive message explaining the cause of the exception.
-  final String message;
-
+class NotixSendingException extends NotixException {
   /// Creates a [NotixSendingException] with the provided error [message].
-  NotixSendingException(this.message);
+  NotixSendingException(super.message);
+}
 
-  @override
-  String toString() {
-    return 'SendingException: $message';
-  }
+/// Exception thrown when an error occurs during the process of parsing a notification.
+/// The [NotixParsingException] class is used to represent errors that occur while
+/// attempting to parse a notification, such as malformed JSON. It includes a
+/// descriptive [message] to provide more information about the specific error.
+/// This exception is only used internally and should never be seen by the user.
+class NotixParsingException extends NotixException {
+  /// Creates a [NotixParsingException] with the provided error [message].
+  NotixParsingException(super.message);
 }
