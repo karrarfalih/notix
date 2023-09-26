@@ -5,6 +5,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dio/dio.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -575,6 +576,120 @@ abstract class Notix {
       throw NotixSendingException('Error sending notification: $e');
     }
   }
+
+    /// Retrieves a notification from Firestore by its unique identifier.
+  ///
+  /// Parameters:
+  ///
+  /// - `id`: The unique identifier of the notification to retrieve.
+  ///
+  /// Returns:
+  ///
+  /// A [Future] that resolves to the retrieved [NotixMessage] object.
+  Future<NotixMessage?> getNotificationById(String id) => configs.datasourceConfig.get(id);
+
+  /// Deletes a notification from Firestore.
+  ///
+  /// Parameters:
+  ///
+  /// - `notificationId`: The unique identifier of the notification to delete.
+  ///
+  /// Returns:
+  ///
+  /// A [Future] that completes when the notification is successfully deleted.
+  Future<void> deleteNotificationById(String notificationId) async => await configs.datasourceConfig.delete(notificationId);
+
+  /// Saves a notification to Firestore.
+  ///
+  /// Parameters:
+  ///
+  /// - `model`: The [NotixMessage] object to save in Firestore.
+  ///
+  /// Returns:
+  ///
+  /// A [Future] that completes when the notification is successfully saved.
+  Future<void> saveNotificationToFirestore(NotixMessage model) async => await configs.datasourceConfig.save(model);
+
+  /// Marks a notification as seen in Firestore.
+  ///
+  /// Parameters:
+  ///
+  /// - `notificationId`: The unique identifier of the notification to mark as seen.
+  ///
+  /// Returns:
+  ///
+  /// A [Future] that completes when the notification is successfully marked as seen.
+  Future<void> markAsSeen(String notificationId) async => await configs.datasourceConfig.markAsSeen(notificationId);
+  /// Marks all unseen notifications for the current user as seen.
+  ///
+  /// This method queries Firestore for all unseen notifications associated with
+  /// the current user and marks them as seen.
+  /// 
+  /// Firestore Indexes:
+  /// To ensure efficient Firestore queries and operations, you need to set up
+  /// appropriate Firestore indexes. You can do this by adding the following indexes
+  /// in the Firebase console:
+  /// 
+  /// Collection: your_collection_path (by default: notix)
+  ///  Fields:
+  ///   - targetedUserId (Ascending)
+  ///   - isSeen (Ascending)
+  ///
+  /// Returns:
+  ///
+  /// A [Future] that completes when all unseen notifications are successfully marked as seen.
+  /// 
+  /// Parameters:
+  /// 
+  /// - `userId`: The user ID to mark all the associated unseen notifications as seen.
+  /// If no user ID is provided, the current user ID will be tried to be retrieved from
+  /// the [Notix.configs].
+  /// 
+  Future<void> markAllAsSeen([String? userId]) async => await configs.datasourceConfig.markAllAsSeen(userId);
+
+  /// Returns a Firestore query for fetching notifications.
+  ///
+  /// The query is configured to filter notifications for the current user and order them
+  /// by creation date in descending order.
+  ///
+  /// Firestore Indexes:
+  /// To ensure efficient Firestore queries and operations, you need to set up
+  /// appropriate Firestore indexes. You can do this by adding the following indexes
+  /// in the Firebase console:
+  /// 
+  /// Collection: your_collection_path (by default: notix)
+  ///   Fields:
+  ///   - targetedUserId (Ascending)
+  ///   - createdAt (Descending)
+  ///
+  /// Parameters:
+  /// 
+  /// - `userId`: The user ID to mark all the associated unseen notifications as seen.
+  /// If no user ID is provided, the current user ID will be tried to be retrieved from
+  /// the [Notix.configs].
+  /// 
+  /// Usage example:
+  ///
+  /// ```dart
+  /// final query = Notix.query;
+  /// final notifications = await query.get();
+  /// ```
+  Query<NotixMessage> firebaseQuery([String? userId]) => configs.datasourceConfig.query(userId);
+
+  /// Returns a [Stream] that provides the count of unseen notifications.
+  ///
+  /// The stream emits the count whenever there are changes to the unseen notifications
+  /// in Firestore.
+  ///
+  /// Usage example:
+  ///
+  /// ```dart
+  /// final unseenCountStream = Notix.unseenCountStream;
+  /// unseenCountStream.listen((count) {
+  ///   print('Unseen notification count: $count');
+  /// });
+  /// ```
+  Stream<int> get unseenCountStream => configs.datasourceConfig.unseenCountStream;
 
   /// Disposes the Notix package.
   /// Use this method to dispose the Notix package and release all resources.
