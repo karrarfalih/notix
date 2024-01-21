@@ -3,7 +3,7 @@ import 'package:notix/src/datasource/datasource.dart';
 import 'package:notix/src/models/message.dart';
 import 'package:notix/src/utils/log.dart';
 
-class NotixDisabledDatasource extends NotixFirestore {
+class NotixDisabledDatasource extends NotixDatastore {
   const NotixDisabledDatasource();
 
   @override
@@ -23,18 +23,20 @@ class NotixDisabledDatasource extends NotixFirestore {
   }
 
   @override
-    Future<void> markAsSeen(String notificationId)async{
+  Future<void> markAsSeen(String notificationId) async {
     NotixLog.d('The Firestore data source is disabled', isError: true);
   }
 
   @override
-    Future<void> markAllAsSeen([String? userId]) async {
+  Future<void> markAllAsSeen([String? userId]) async {
     NotixLog.d('The Firestore data source is disabled', isError: true);
   }
 
   @override
-  Query<NotixMessage> query([String? userId]) => throw UnimplementedError('The Firestore data source is disabled');
+  Query<NotixMessage> query([String? userId]) =>
+      throw UnimplementedError('The Firestore data source is disabled');
 
   @override
-  Stream<int> get unseenCountStream => throw UnimplementedError('The Firestore data source is disabled');
+  Stream<int> get unseenCountStream =>
+      throw UnimplementedError('The Firestore data source is disabled');
 }

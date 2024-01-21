@@ -41,7 +41,7 @@ import 'package:notix/src/utils/log.dart';
 /// // Get the count of unseen notifications
 /// final unseenCountStream = firestoreConfig.unseenCountStream;
 /// ```
-class NotixFirestore {
+class NotixDatastore {
   /// The Firestore collection path where notifications are stored.
   final String collectionPath;
 
@@ -54,7 +54,7 @@ class NotixFirestore {
   /// ```dart
   /// final firestoreConfig = NotixFirestore(collectionPath: 'custom_notifications');
   /// ```
-  const NotixFirestore({this.collectionPath = 'notix'});
+  const NotixDatastore({this.collectionPath = 'notix'});
 
   /// A disabled data source in case you don't want to use Firestore.
   /// This data source is used by default if you don't configure Firestore.
@@ -67,7 +67,7 @@ class NotixFirestore {
   /// ```dart
   /// final firestoreConfig = NotixDisabledDatasource();
   /// ```
-  static NotixFirestore get disabled => const NotixDisabledDatasource();
+  static NotixDatastore get disabled => const NotixDisabledDatasource();
 
   CollectionReference<NotixMessage> get _reference => FirebaseFirestore.instance
       .collection(collectionPath)
@@ -151,12 +151,12 @@ class NotixFirestore {
   ///
   /// This method queries Firestore for all unseen notifications associated with
   /// the current user and marks them as seen.
-  /// 
+  ///
   /// Firestore Indexes:
   /// To ensure efficient Firestore queries and operations, you need to set up
   /// appropriate Firestore indexes. You can do this by adding the following indexes
   /// in the Firebase console:
-  /// 
+  ///
   /// Collection: your_collection_path (by default: notix)
   ///  Fields:
   ///   - targetedUserId (Ascending)
@@ -165,16 +165,16 @@ class NotixFirestore {
   /// Returns:
   ///
   /// A [Future] that completes when all unseen notifications are successfully marked as seen.
-  /// 
+  ///
   /// Parameters:
-  /// 
+  ///
   /// - `userId`: The user ID to mark all the associated unseen notifications as seen.
   /// If no user ID is provided, the current user ID will be tried to be retrieved from
   /// the [Notix.configs].
-  /// 
+  ///
   Future<void> markAllAsSeen([String? userId]) async {
     final targetedUserId = userId ?? Notix.configs.currentUserId?.call();
-    if (userId == null) {
+    if (targetedUserId == null) {
       NotixLog.d('No user ID found', isError: true);
     }
     final QuerySnapshot<NotixMessage> snapshot;
@@ -187,6 +187,7 @@ class NotixFirestore {
       NotixLog.d('Error getting unseen notifications: $e', isError: true);
       return;
     }
+    NotixLog.d('Marking ${snapshot.docs.length} notifications as seen');
     final models = snapshot.docs.map((e) => e.data()).toList();
     for (final model in models) {
       await markAsSeen(model.id);
@@ -202,18 +203,18 @@ class NotixFirestore {
   /// To ensure efficient Firestore queries and operations, you need to set up
   /// appropriate Firestore indexes. You can do this by adding the following indexes
   /// in the Firebase console:
-  /// 
+  ///
   /// Collection: your_collection_path (by default: notix)
   ///   Fields:
   ///   - targetedUserId (Ascending)
   ///   - createdAt (Descending)
   ///
   /// Parameters:
-  /// 
+  ///
   /// - `userId`: The user ID to mark all the associated unseen notifications as seen.
   /// If no user ID is provided, the current user ID will be tried to be retrieved from
   /// the [Notix.configs].
-  /// 
+  ///
   /// Usage example:
   ///
   /// ```dart
@@ -251,4 +252,14 @@ class NotixFirestore {
         (e) =>
             NotixLog.d('Error getting unseen notifications: $e', isError: true),
       );
+
+  /// use this method to check if all indexes are created in firestore. If not,
+  /// it will throw an error with a link to create the index.
+  testQuries() {
+    query('').get();
+    _reference
+        .where('targetedUserId', isEqualTo: '')
+        .where('isSeen', isEqualTo: false)
+        .get();
+  }
 }

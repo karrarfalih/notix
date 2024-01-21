@@ -5,9 +5,6 @@ enum EventType {
   /// Event type indicating the reception of a single notification.
   receiveNotification,
 
-  /// Event type indicating the reception of a topic notification.
-  receiveTopic,
-
   /// Event type indicating a user tap on a notification.
   notificationTap,
 
@@ -34,9 +31,6 @@ enum EventType {
 /// switch (notificationReceivedEvent.type) {
 ///   case EventType.receiveNotification:
 ///     // Handle single notification reception event.
-///     break;
-///   case EventType.receiveTopic:
-///     // Handle topic notification reception event.
 ///     break;
 ///   case EventType.notificationTap:
 ///     // Handle notification tap event.

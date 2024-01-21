@@ -70,7 +70,7 @@ class NotixConfig {
   final String? Function()? currentUserId;
 
   /// Configuration for the data source used to store notifications.
-  final NotixFirestore datasourceConfig;
+  final NotixDatastore datasourceConfig;
 
   /// A callback function for handling received notifications.
   Function(NotixMessage)? onRecievedNotification;
@@ -104,7 +104,7 @@ class NotixConfig {
     this.groupChannels = const [],
     NotixChannel? defaultChannel,
     this.currentUserId,
-    this.datasourceConfig = const NotixFirestore(),
+    this.datasourceConfig = const NotixDatastore(),
     this.onRecievedNotification,
     this.onSelectNotification,
     this.canShowNotification,

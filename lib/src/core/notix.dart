@@ -11,8 +11,11 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:notix/src/models/models.dart';
 import 'package:notix/src/utils/log.dart';
+import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 
 part 'channels.dart';
 
@@ -27,6 +30,13 @@ abstract class Notix {
   static bool _isInitialized = false;
   static late FlutterLocalNotificationsPlugin _plugin;
   static final List<String> _topics = [];
+  static final dio = Dio(
+    BaseOptions(
+      receiveTimeout: const Duration(seconds: 15),
+      connectTimeout: const Duration(seconds: 15),
+      sendTimeout: const Duration(seconds: 15),
+    ),
+  );
 
   static NotixConfig _configs = NotixConfig.defaults();
 
@@ -137,6 +147,7 @@ abstract class Notix {
     if (!isGranted) {
       throw NotixPermissionException('Permission denied.');
     }
+    tz.initializeTimeZones();
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
     if (!kIsWeb) {
       _plugin = FlutterLocalNotificationsPlugin();
@@ -165,7 +176,6 @@ abstract class Notix {
             'Error initializing notifications: $e');
       }
 
-      _isInitialized = true;
       final lunchNots = await _plugin.getNotificationAppLaunchDetails();
       if (lunchNots != null &&
           lunchNots.didNotificationLaunchApp &&
@@ -173,6 +183,7 @@ abstract class Notix {
         _onSelectNotificationHandler(lunchNots.notificationResponse!);
       }
     }
+    _isInitialized = true;
     FirebaseMessaging.onMessage.listen(_recievedNotificationHandler);
     if (configs.onTokenRefresh != null) {
       _messaging.onTokenRefresh.listen(configs.onTokenRefresh);
@@ -210,7 +221,7 @@ abstract class Notix {
   /// }
   /// ```
   ///
-  /// See also: [requestNotificationPermission], [init]
+  /// See also: [_requestNotificationPermission], [init]
   static Future<bool> checkNotificationsPermission() async {
     var settings = await _messaging.getNotificationSettings();
     NotixLog.d(
@@ -232,9 +243,7 @@ abstract class Notix {
       await showNotification(not);
     }
     _eventController?.add(NotixEvent(
-      type: not.topic != null
-          ? EventType.receiveTopic
-          : EventType.receiveNotification,
+      type: EventType.receiveNotification,
       notification: not,
     ));
   }
@@ -280,9 +289,8 @@ abstract class Notix {
   ///   NotixModel(
   ///     title: 'title',
   ///     body: 'body',
-  ///     clientNotificationId: 'the client notification id or topic',
+  ///     clientNotificationIds: ['the client notification id'],
   ///     channel: 'channel',
-  ///     type: NotixType.topic,
   ///     imageUrl: 'your image url',
   ///   ),
   /// );
@@ -329,17 +337,43 @@ abstract class Notix {
         android: androidPlatformChannelSpecifics,
         iOS: iosNotificationDetails,
       );
-      await _plugin.show(
-        notification.notificationId,
-        notification.title,
-        notification.body,
-        platformChannelSpecifics,
-        payload: json.encode(notification.toMap),
-      );
-      _eventController?.add(NotixEvent(
-        type: EventType.notificationAdd,
-        notification: notification,
-      ));
+      if (notification.scheduleTime != null) {
+        final AndroidFlutterLocalNotificationsPlugin? androidImplementation =
+            _plugin.resolvePlatformSpecificImplementation<
+                AndroidFlutterLocalNotificationsPlugin>();
+        final bool? grantedNotificationPermission =
+            await androidImplementation?.canScheduleExactNotifications();
+        if (grantedNotificationPermission == false) {
+          throw NotixPermissionException(
+              'You must grant notification permissions to schedule notifications.');
+        }
+        NotixLog.d(
+            'Scheduling notification for id ${notification.notificationId} at ${notification.scheduleTime?.sendAt} by time zone ${notification.scheduleTime?.timeZone}');
+        final String currentTimeZone = notification.scheduleTime?.timeZone ??
+            await FlutterTimezone.getLocalTimezone();
+        await _plugin.zonedSchedule(
+            notification.notificationId,
+            notification.title,
+            notification.body,
+            tz.TZDateTime.from(notification.scheduleTime!.sendAt,
+                tz.getLocation(currentTimeZone)),
+            platformChannelSpecifics,
+            androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+            uiLocalNotificationDateInterpretation:
+                UILocalNotificationDateInterpretation.absoluteTime);
+      } else {
+        await _plugin.show(
+          notification.notificationId,
+          notification.title,
+          notification.body,
+          platformChannelSpecifics,
+          payload: json.encode(notification.toMap),
+        );
+        _eventController?.add(NotixEvent(
+          type: EventType.notificationAdd,
+          notification: notification,
+        ));
+      }
     } catch (e) {
       NotixLog.d('Error showing notification: $e', isError: true);
     }
@@ -485,7 +519,8 @@ abstract class Notix {
   ///  ),
   /// );
   /// ```
-  static Future<void> push(NotixMessage notification) async {
+  static Future<void> push(NotixMessage notification,
+      {bool addToHistory = true}) async {
     _checkInitialized();
     NotixLog.d('Sending notification: ${notification.toMap}');
     if (notification.clientNotificationIds.isEmpty &&
@@ -508,23 +543,25 @@ abstract class Notix {
       type: EventType.notificationAdd,
       notification: notification,
     ));
-    await configs.datasourceConfig.save(notification);
+    if (addToHistory) await configs.datasourceConfig.save(notification);
   }
 
   static Future<String?> _push(
       NotixMessage notification, String clientNotificationId) async {
-    int currentRetry = 0;
     const retryDelay = Duration(seconds: 5);
-    while (currentRetry < _configs.maxRetries) {
+    for (int i = 0; i < _configs.maxRetries; i++) {
+      if (i == _configs.maxRetries) {
+        NotixLog.d(
+            'Error sending notification for id ${notification.notificationId}',
+            isError: true);
+        break;
+      }
       try {
         await _sendHttpRequest(notification, clientNotificationId);
+        return null;
       } catch (e) {
         NotixLog.d('Error sending notification: $e', isError: true);
         await Future.delayed(retryDelay);
-        currentRetry++;
-        if (currentRetry == _configs.maxRetries) {
-          return e.toString();
-        }
       }
     }
     return null;
@@ -537,7 +574,7 @@ abstract class Notix {
       to = '/topics/$clientNotificationId';
     }
     try {
-      await Dio().post(
+      await dio.post(
         'https://fcm.googleapis.com/fcm/send',
         options: Options(
           headers: <String, String>{
@@ -577,7 +614,7 @@ abstract class Notix {
     }
   }
 
-    /// Retrieves a notification from Firestore by its unique identifier.
+  /// Retrieves a notification from Firestore by its unique identifier.
   ///
   /// Parameters:
   ///
@@ -586,7 +623,8 @@ abstract class Notix {
   /// Returns:
   ///
   /// A [Future] that resolves to the retrieved [NotixMessage] object.
-  Future<NotixMessage?> getNotificationById(String id) => configs.datasourceConfig.get(id);
+  static Future<NotixMessage?> getNotificationById(String id) =>
+      configs.datasourceConfig.get(id);
 
   /// Deletes a notification from Firestore.
   ///
@@ -597,7 +635,8 @@ abstract class Notix {
   /// Returns:
   ///
   /// A [Future] that completes when the notification is successfully deleted.
-  Future<void> deleteNotificationById(String notificationId) async => await configs.datasourceConfig.delete(notificationId);
+  static Future<void> deleteNotificationById(String notificationId) async =>
+      await configs.datasourceConfig.delete(notificationId);
 
   /// Saves a notification to Firestore.
   ///
@@ -608,7 +647,8 @@ abstract class Notix {
   /// Returns:
   ///
   /// A [Future] that completes when the notification is successfully saved.
-  Future<void> saveNotificationToFirestore(NotixMessage model) async => await configs.datasourceConfig.save(model);
+  static Future<void> saveNotificationToFirestore(NotixMessage model) async =>
+      await configs.datasourceConfig.save(model);
 
   /// Marks a notification as seen in Firestore.
   ///
@@ -619,17 +659,19 @@ abstract class Notix {
   /// Returns:
   ///
   /// A [Future] that completes when the notification is successfully marked as seen.
-  Future<void> markAsSeen(String notificationId) async => await configs.datasourceConfig.markAsSeen(notificationId);
+  static Future<void> markAsSeen(String notificationId) async =>
+      await configs.datasourceConfig.markAsSeen(notificationId);
+
   /// Marks all unseen notifications for the current user as seen.
   ///
   /// This method queries Firestore for all unseen notifications associated with
   /// the current user and marks them as seen.
-  /// 
+  ///
   /// Firestore Indexes:
   /// To ensure efficient Firestore queries and operations, you need to set up
   /// appropriate Firestore indexes. You can do this by adding the following indexes
   /// in the Firebase console:
-  /// 
+  ///
   /// Collection: your_collection_path (by default: notix)
   ///  Fields:
   ///   - targetedUserId (Ascending)
@@ -638,14 +680,15 @@ abstract class Notix {
   /// Returns:
   ///
   /// A [Future] that completes when all unseen notifications are successfully marked as seen.
-  /// 
+  ///
   /// Parameters:
-  /// 
+  ///
   /// - `userId`: The user ID to mark all the associated unseen notifications as seen.
   /// If no user ID is provided, the current user ID will be tried to be retrieved from
   /// the [Notix.configs].
-  /// 
-  Future<void> markAllAsSeen([String? userId]) async => await configs.datasourceConfig.markAllAsSeen(userId);
+  ///
+  static Future<void> markAllAsSeen([String? userId]) async =>
+      await configs.datasourceConfig.markAllAsSeen(userId);
 
   /// Returns a Firestore query for fetching notifications.
   ///
@@ -656,25 +699,26 @@ abstract class Notix {
   /// To ensure efficient Firestore queries and operations, you need to set up
   /// appropriate Firestore indexes. You can do this by adding the following indexes
   /// in the Firebase console:
-  /// 
+  ///
   /// Collection: your_collection_path (by default: notix)
   ///   Fields:
   ///   - targetedUserId (Ascending)
   ///   - createdAt (Descending)
   ///
   /// Parameters:
-  /// 
+  ///
   /// - `userId`: The user ID to mark all the associated unseen notifications as seen.
   /// If no user ID is provided, the current user ID will be tried to be retrieved from
   /// the [Notix.configs].
-  /// 
+  ///
   /// Usage example:
   ///
   /// ```dart
   /// final query = Notix.query;
   /// final notifications = await query.get();
   /// ```
-  Query<NotixMessage> firebaseQuery([String? userId]) => configs.datasourceConfig.query(userId);
+  static Query<NotixMessage> firebaseQuery([String? userId]) =>
+      configs.datasourceConfig.query(userId);
 
   /// Returns a [Stream] that provides the count of unseen notifications.
   ///
@@ -689,7 +733,14 @@ abstract class Notix {
   ///   print('Unseen notification count: $count');
   /// });
   /// ```
-  Stream<int> get unseenCountStream => configs.datasourceConfig.unseenCountStream;
+  static Stream<int> get unseenCountStream =>
+      configs.datasourceConfig.unseenCountStream;
+
+  /// use this method to check if all indexes are created in firestore. If not,
+  /// it will throw an error with a link to create the index.
+  static testQuries() {
+    configs.datasourceConfig.testQuries();
+  }
 
   /// Disposes the Notix package.
   /// Use this method to dispose the Notix package and release all resources.

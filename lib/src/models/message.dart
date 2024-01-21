@@ -1,14 +1,13 @@
-import 'dart:math';
-
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:notix/src/models/enums.dart';
+import 'package:notix/src/models/schedule.dart';
 import 'package:notix/src/utils/uuid.dart';
 
 /// An object representing a notification to be sent or received by the Notix framework.
 ///
 /// A [NotixMessage] instance encapsulates information about a notification, including its
-/// unique [id] unique [notificationId], [channel], [type], [title], [body], [imageUrl],
-///  [senders], [clientNotificationId], [payload], [importance], [playSound], and [createdAt].
+/// unique [id] unique identifier, [topic], [title], [body], [payload], [imageUrl], [importance],
+/// [createdAt], [scheduleTime], [senders], [playSound], and [isSeen].
 /// This class is used for both sending and receiving notifications.
 class NotixMessage {
   /// The unique identifier for the notification.
@@ -55,33 +54,74 @@ class NotixMessage {
   /// The date and time when the notification was created.
   final DateTime createdAt;
 
+  /// The date and time when the notification should be shown.
+  final ScheduleTime? scheduleTime;
+
   /// A flag indicating whether the notification has been seen.
   final bool isSeen;
 
   /// Creates a new [NotixMessage] instance with the specified parameters.
-  NotixMessage({
+  factory NotixMessage({
     String? id,
     int? notificationId,
-    this.clientNotificationIds = const [],
-    this.topic,
-    this.senders = const [],
-    this.targetedUserId,
-    this.channel,
-    this.body,
-    this.title,
-    this.payload,
-    this.imageUrl,
-    this.importance,
+    List<String> clientNotificationIds = const [],
+    String? topic,
+    List<String> senders = const [],
+    String? targetedUserId,
+    String? channel,
+    String? body,
+    String? title,
+    Map<String, dynamic>? payload,
+    String? imageUrl,
+    NotixImportance? importance,
     DateTime? createdAt,
-    this.playSound,
+    ScheduleTime? scheduleTime,
+    bool? playSound,
     bool? isSeen,
-  })  : id = id ?? GUIDGen.generate(),
-        notificationId = notificationId ?? Random().nextInt(1 << 16),
-        createdAt = createdAt ?? DateTime.now(),
-        isSeen = isSeen ?? false,
-        assert (clientNotificationIds.isEmpty && topic == null, 'you must provide a topic or a clientNotificationIds'),
-        assert(title == null && body == null,
-            'you must provide a title or a body');
+  }) {
+    assert(clientNotificationIds.isNotEmpty || topic != null,
+        'you must provide a topic or a clientNotificationIds');
+    assert(title != null || body != null, 'you must provide a title or a body');
+    // ignore: no_leading_underscores_for_local_identifiers
+    final _id = id ?? GUIDGen.generate();
+    return NotixMessage._(
+      id: _id,
+      notificationId: notificationId ?? _id.hashCode,
+      clientNotificationIds: clientNotificationIds,
+      topic: topic,
+      targetedUserId: targetedUserId,
+      channel: channel,
+      title: title,
+      body: body,
+      payload: payload,
+      imageUrl: imageUrl,
+      importance: importance ?? NotixImportance.max,
+      createdAt: createdAt ?? DateTime.now(),
+      scheduleTime: scheduleTime,
+      senders: senders,
+      playSound: playSound,
+      isSeen: isSeen ?? false,
+    );
+  }
+
+  NotixMessage._({
+    required this.id,
+    required this.notificationId,
+    required this.clientNotificationIds,
+    required this.topic,
+    required this.targetedUserId,
+    required this.channel,
+    required this.title,
+    required this.body,
+    required this.payload,
+    required this.imageUrl,
+    required this.importance,
+    required this.createdAt,
+    required this.scheduleTime,
+    required this.senders,
+    required this.playSound,
+    required this.isSeen,
+  });
 
   /// Converts the [NotixMessage] object to a JSON-encodable map.
   Map<String, dynamic> get toMap => {
@@ -96,10 +136,11 @@ class NotixMessage {
         'imageUrl': imageUrl,
         'importance': importance?.name,
         'createdAt': createdAt.millisecondsSinceEpoch,
+        'scheduleTime': scheduleTime?.toMap,
         'senders': senders,
         'playSound': playSound,
         'isSeen': isSeen,
-        ...payload ?? {},
+        'payload': payload,
       }..removeWhere((key, value) => value == null);
 
   /// Creates a [NotixMessage] instance from a map representation.
@@ -116,13 +157,16 @@ class NotixMessage {
         channel = map['channel'],
         title = map['title'],
         body = map['body'],
-        payload = map,
+        payload = map['payload'] ?? {},
         imageUrl = map['imageUrl'],
         importance = NotixImportance.values.firstWhere(
           (element) => element.name == map['importance'],
           orElse: () => NotixImportance.max,
         ),
         createdAt = DateTime.fromMillisecondsSinceEpoch(map['createdAt']),
+        scheduleTime = map['scheduleTime'] != null
+            ? ScheduleTime.fromMap(map['scheduleTime'])
+            : null,
         playSound = map['playSound'] ?? true,
         isSeen = map['isSeen'] ?? false;
 
@@ -144,6 +188,7 @@ class NotixMessage {
     String? imageUrl,
     NotixImportance? importance,
     DateTime? createdAt,
+    ScheduleTime? scheduleTime,
     List<String>? senders,
     bool? playSound,
     bool? isSeen,
@@ -160,6 +205,7 @@ class NotixMessage {
       imageUrl: imageUrl ?? this.imageUrl,
       importance: importance ?? this.importance,
       createdAt: createdAt ?? this.createdAt,
+      scheduleTime: scheduleTime ?? this.scheduleTime,
       senders: senders ?? this.senders,
       playSound: playSound ?? this.playSound,
       isSeen: isSeen ?? this.isSeen,

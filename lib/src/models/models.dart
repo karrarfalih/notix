@@ -5,3 +5,4 @@ export 'message.dart';
 export 'config.dart';
 export 'event.dart';
 export 'enums.dart';
+export 'schedule.dart';
