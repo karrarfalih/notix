@@ -29,7 +29,7 @@ Add the following line to your `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  Notix: ^x.y.z
+  notix: ^x.y.z
 ```
 Replace x.y.z with the latest version of Notix from pub.dev.
 
