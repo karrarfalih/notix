@@ -441,7 +441,7 @@ abstract class Notix {
   /// ```
   ///
   /// See also: [unsubscribeFromTopic], [push], [init]
-  static Future<void> subscibeToTopic(String topic) async {
+  static Future<void> subscribeToTopic(String topic) async {
     _checkInitialized();
     await _messaging.subscribeToTopic(topic);
     _topics.add(topic);
@@ -461,7 +461,7 @@ abstract class Notix {
   /// await Notix.unsubscribeFromTopic(topic);
   /// ```
   ///
-  /// See also: [subscibeToTopic], [push], [init]
+  /// See also: [subscribeToTopic], [push], [init]
   static Future<void> unsubscribeFromTopic(String topic) async {
     _checkInitialized();
     await _messaging.unsubscribeFromTopic(topic);
@@ -477,7 +477,7 @@ abstract class Notix {
   /// await Notix.unsubscribeFromAll();
   /// ```
   ///
-  /// See also: [subscibeToTopic], [push], [init]
+  /// See also: [subscribeToTopic], [push], [init]
   static Future<void> unsubscribeFromAll() async {
     _checkInitialized();
     for (final topic in _topics) {
@@ -754,6 +754,7 @@ abstract class Notix {
   /// See also: [init]
   static void dispose() {
     unsubscribeFromAll();
+    FirebaseMessaging.instance.deleteToken();
     _eventController?.close();
     _configs = NotixConfig.defaults();
     _isInitialized = false;

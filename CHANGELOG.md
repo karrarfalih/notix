@@ -1,3 +1,6 @@
-## 0.0.1
+## 0.0.13
+* delete FCM token after dispose.
 
-* TODO: Describe initial release.
+## 0.0.12
+
+* update dependencies to the latest versions
